@@ -14,8 +14,18 @@ import {
   Link, Route, Switch, useLocation, Router as WouterRouter,
 } from 'wouter';
 
-type Request = { productRequest: string; budgetNear: number; requiredFeatures: string[] };
-type Offer = { id: string; name: string; priceNear: number; features: string[]; description: string };
+import {
+  decisionReasons,
+  formatNear,
+  getFeatureOptions,
+  getProductCategoryLabel,
+  getSampleOffers,
+  isEligible,
+  isSatisfied,
+  type Offer,
+  type Request,
+} from '@/lib/purchasing';
+
 type ActivityEntry = { id: number; title: string; detail: string; time: string; kind: 'request' | 'check' | 'reject' | 'select' | 'approve' };
 
 const queryClient = new QueryClient();
@@ -24,11 +34,6 @@ const initialRequest: Request = {
   budgetNear: 18.5,
   requiredFeatures: ['Active noise cancellation', 'Bluetooth 5.3', '30-hour battery'],
 };
-const offers: Offer[] = [
-  { id: 'a', name: 'Sonora QuietComfort 45', priceNear: 16.8, description: 'A balanced everyday pair with a comfortable fit and dependable all-day sound.', features: ['Active noise cancellation', 'Bluetooth 5.3', '30-hour battery', 'Multipoint pairing', 'USB-C charging'] },
-  { id: 'b', name: 'Auralis Studio Max', priceNear: 21.2, description: 'Premium studio tuning and plush materials, priced beyond this request’s ceiling.', features: ['Active noise cancellation', 'Bluetooth 5.3', '40-hour battery', 'Spatial audio', 'USB-C charging'] },
-  { id: 'c', name: 'Northline Travel One', priceNear: 14.4, description: 'Lightweight travel headphones with long playback and fold-flat storage.', features: ['Active noise cancellation', 'Bluetooth 5.2', '32-hour battery', 'Fold-flat design', 'USB-C charging'] },
-];
 const starterActivity: ActivityEntry[] = [
   { id: 5, title: 'Comparison prepared', detail: 'Three sample offers were checked against the current request rules.', time: 'Just now', kind: 'check' },
   { id: 4, title: 'Offer C returned', detail: 'Northline Travel One is within budget, but does not include Bluetooth 5.3.', time: 'Just now', kind: 'reject' },
@@ -37,23 +42,8 @@ const starterActivity: ActivityEntry[] = [
   { id: 1, title: 'Request submitted', detail: 'Wireless over-ear headphones · budget 18.5 NEAR · 3 required features.', time: 'Just now', kind: 'request' },
 ];
 
-function formatNear(value: number) {
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
-}
 function formatTime() {
   return new Intl.DateTimeFormat('en', { hour: 'numeric', minute: '2-digit' }).format(new Date());
-}
-function isSatisfied(offer: Offer, feature: string) {
-  return offer.features.some((item) => item.toLowerCase() === feature.toLowerCase());
-}
-function decisionReasons(offer: Offer, request: Request) {
-  const reasons: string[] = [];
-  if (offer.priceNear > request.budgetNear) reasons.push(`Price is ${formatNear(offer.priceNear - request.budgetNear)} NEAR over your ${formatNear(request.budgetNear)} NEAR budget.`);
-  request.requiredFeatures.filter((feature) => !isSatisfied(offer, feature)).forEach((feature) => reasons.push(`Missing required feature: ${feature}.`));
-  return reasons;
-}
-function isEligible(offer: Offer, request: Request) {
-  return decisionReasons(offer, request).length === 0;
 }
 
 function App() {
@@ -62,6 +52,7 @@ function App() {
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
   const [location, setLocation] = useLocation();
+  const activeOffers = getSampleOffers(request.productRequest);
   const activitySequence = useRef(100);
   const addActivity = (entry: Omit<ActivityEntry, 'id' | 'time'>) => {
     activitySequence.current += 1;
@@ -71,8 +62,17 @@ function App() {
     setRequest(nextRequest);
     setApproved(false);
     setSelectedOfferId(null);
+    setActivity([]);
     addActivity({ title: 'Request submitted', detail: `${nextRequest.productRequest} · budget ${formatNear(nextRequest.budgetNear)} NEAR · ${nextRequest.requiredFeatures.length} required ${nextRequest.requiredFeatures.length === 1 ? 'feature' : 'features'}.`, kind: 'request' });
-    offers.forEach((offer) => {
+    const nextOffers = getSampleOffers(nextRequest.productRequest);
+    if (nextOffers.length === 0) {
+      addActivity({
+        title: 'No sample offers available',
+        detail: `No sample offers are available for “${nextRequest.productRequest}.” No unrelated offers were compared.`,
+        kind: 'check',
+      });
+    }
+    nextOffers.forEach((offer) => {
       const reasons = decisionReasons(offer, nextRequest);
       addActivity({
         title: reasons.length ? `${offer.name} rejected by rules` : `${offer.name} passed rule check`,
@@ -83,14 +83,15 @@ function App() {
     setLocation('/offers');
   };
   const selectOffer = (offer: Offer) => {
-    if (!isEligible(offer, request)) return;
-    setSelectedOfferId(offer.id);
+    const currentOffer = activeOffers.find((item) => item.id === offer.id);
+    if (!currentOffer || !isEligible(currentOffer, request)) return;
+    setSelectedOfferId(currentOffer.id);
     setApproved(false);
-    addActivity({ title: 'Offer selected for review', detail: `${offer.name} at ${formatNear(offer.priceNear)} NEAR passed all required checks and was opened for your review.`, kind: 'select' });
+    addActivity({ title: 'Offer selected for review', detail: `${currentOffer.name} at ${formatNear(currentOffer.priceNear)} NEAR passed all required checks and was opened for your review.`, kind: 'select' });
     setLocation('/review');
   };
   const approve = () => {
-    const offer = offers.find((item) => item.id === selectedOfferId);
+    const offer = activeOffers.find((item) => item.id === selectedOfferId);
     if (!offer || !isEligible(offer, request)) return;
     setApproved(true);
     addActivity({ title: 'Demo approval recorded', detail: `${offer.name} at ${formatNear(offer.priceNear)} NEAR was approved locally. No wallet or blockchain transaction was used.`, kind: 'approve' });
@@ -102,11 +103,11 @@ function App() {
           <RoutedErrorBoundary>
             <AppShell location={location}>
               <Switch>
-                <Route path="/" component={() => <Dashboard request={request} activity={activity} />} />
-                <Route path="/dashboard" component={() => <Dashboard request={request} activity={activity} />} />
+                <Route path="/" component={() => <Dashboard request={request} activity={activity} offers={activeOffers} />} />
+                <Route path="/dashboard" component={() => <Dashboard request={request} activity={activity} offers={activeOffers} />} />
                 <Route path="/request" component={() => <RequestPage request={request} onSubmit={submitRequest} />} />
-                <Route path="/offers" component={() => <OffersPage request={request} selectedOfferId={selectedOfferId} onSelect={selectOffer} />} />
-                <Route path="/review" component={() => <ReviewPage request={request} selectedOffer={offers.find((offer) => offer.id === selectedOfferId)} approved={approved} onApprove={approve} onCompare={() => setLocation('/offers')} />} />
+                <Route path="/offers" component={() => <OffersPage request={request} offers={activeOffers} selectedOfferId={selectedOfferId} onSelect={selectOffer} />} />
+                <Route path="/review" component={() => <ReviewPage request={request} selectedOffer={activeOffers.find((offer) => offer.id === selectedOfferId)} approved={approved} onApprove={approve} onCompare={() => setLocation('/offers')} />} />
                 <Route path="/activity" component={() => <ActivityPage activity={activity} />} />
                 <Route component={NotFound} />
               </Switch>
@@ -171,7 +172,7 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow: string;
   return <div className="page-heading"><div><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p></div>{action}</div>;
 }
 
-function Dashboard({ request, activity }: { request: Request; activity: ActivityEntry[] }) {
+function Dashboard({ request, activity, offers }: { request: Request; activity: ActivityEntry[]; offers: Offer[] }) {
   const bestEligible = offers.filter((offer) => isEligible(offer, request)).sort((a, b) => a.priceNear - b.priceNear)[0];
   const spent = bestEligible?.priceNear ?? 0;
   const ringOffset = bestEligible ? 420 - Math.min(420, (spent / request.budgetNear) * 420) : 420;
@@ -181,7 +182,7 @@ function Dashboard({ request, activity }: { request: Request; activity: Activity
     <div className="stat-grid">
       <section className="panel stat-card primary-stat" data-testid="summary-budget"><div className="stat-label"><Coins />Current request budget</div><div className="stat-value">{formatNear(request.budgetNear)} <small>NEAR</small></div><div className="stat-foot">For {request.productRequest.toLowerCase()}</div></section>
       <section className="panel stat-card" data-testid="summary-requirements"><div className="stat-label"><ListChecks />Required features</div><div className="stat-value">{request.requiredFeatures.length} <small>criteria</small></div><div className="stat-foot">Every one must be present</div></section>
-      <section className="panel stat-card" data-testid="summary-eligible"><div className="stat-label"><ShieldCheck />Eligible sample offers</div><div className="stat-value">{offers.filter((offer) => isEligible(offer, request)).length} <small>of 3</small></div><div className="stat-foot">Price and feature rules applied</div></section>
+      <section className="panel stat-card" data-testid="summary-eligible"><div className="stat-label"><ShieldCheck />Eligible sample offers</div><div className="stat-value">{offers.filter((offer) => isEligible(offer, request)).length} <small>of {offers.length}</small></div><div className="stat-foot">{offers.length ? 'Price and feature rules applied' : 'No sample offers for this category'}</div></section>
     </div>
     <div className="summary-row">
       <section className="panel">
@@ -193,7 +194,7 @@ function Dashboard({ request, activity }: { request: Request; activity: Activity
         <div className="budget-visual">
           <div className="budget-ring"><svg viewBox="0 0 160 160" aria-label="Budget usage illustration"><circle className="track" cx="80" cy="80" r="67" /><circle className="value" cx="80" cy="80" r="67" style={{ strokeDashoffset: ringOffset }} /></svg><div className="ring-label"><strong>{bestEligible ? formatNear(spent) : '—'}</strong><span>{bestEligible ? 'best fit' : 'no match'}</span></div></div>
           <div className="budget-caption"><span>{bestEligible ? 'Lowest eligible offer' : 'Eligible offers'}</span><b>{bestEligible ? `${formatNear(spent)} NEAR` : 'None yet'}</b></div>
-          <div className="budget-caption" style={{ marginTop: 9 }}><span>Available headroom</span><b>{formatNear(Math.max(0, request.budgetNear - spent))} NEAR</b></div>
+          <div className="budget-caption" style={{ marginTop: 9 }}><span>Available headroom</span><b>{bestEligible ? `${formatNear(Math.max(0, request.budgetNear - spent))} NEAR` : '—'}</b></div>
         </div>
       </section>
     </div>
@@ -212,14 +213,13 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
   return <div className="activity-item" data-testid={`activity-row-${entry.id}`}><span className="activity-icon"><Icon /></span><div className="activity-copy">{entry.title}<small>{entry.detail}</small></div><span className="activity-time">{entry.time}</span></div>;
 }
 
-const featureOptions = ['Active noise cancellation', 'Bluetooth 5.3', '30-hour battery', 'USB-C charging', 'Multipoint pairing', 'Foldable design', 'Water resistance'];
-
 function RequestPage({ request, onSubmit }: { request: Request; onSubmit: (value: Request) => void }) {
   const [productRequest, setProductRequest] = useState(request.productRequest);
   const [budget, setBudget] = useState(String(request.budgetNear));
   const [requiredFeatures, setRequiredFeatures] = useState<string[]>(request.requiredFeatures);
   const [customFeature, setCustomFeature] = useState('');
   const [error, setError] = useState('');
+  const featureOptions = getFeatureOptions(productRequest);
   const toggleFeature = (feature: string) => setRequiredFeatures((current) => current.includes(feature) ? current.filter((item) => item !== feature) : [...current, feature]);
   const addCustom = () => {
     const value = customFeature.trim();
@@ -242,7 +242,7 @@ function RequestPage({ request, onSubmit }: { request: Request; onSubmit: (value
     <div className="form-layout">
       <form className="panel form-panel" onSubmit={submit}>
         <div className="field"><label htmlFor="product-request">What are you looking to buy?</label><input id="product-request" className="control" value={productRequest} onChange={(event) => setProductRequest(event.target.value)} placeholder="For example, wireless headphones" data-testid="input-product-request" /><span className="hint">A clear product description keeps your comparison focused.</span></div>
-        <div className="field"><label htmlFor="budget-near">Maximum budget</label><div className="budget-input"><input id="budget-near" className="control" type="number" min="0.01" step="0.1" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="0.0" data-testid="input-budget-near" /><span>NEAR</span></div><span className="hint">An offer over this amount is automatically ineligible.</span></div>
+        <div className="field"><label htmlFor="budget-near">Maximum budget</label><div className="budget-input"><input id="budget-near" className="control" type="number" min="0.01" step="0.01" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="0.0" data-testid="input-budget-near" /><span>NEAR</span></div><span className="hint">An offer over this amount is automatically ineligible.</span></div>
         <div className="field"><label>Required features <span style={{ color: '#777582', fontWeight: 500 }}>({requiredFeatures.length} selected)</span></label><span className="hint">Choose the features every eligible offer must include.</span>
           <div className="feature-chips" style={{ marginTop: 5 }}>{featureOptions.map((feature) => <button type="button" key={feature} className={`feature-chip${requiredFeatures.includes(feature) ? ' selected' : ''}`} aria-pressed={requiredFeatures.includes(feature)} onClick={() => toggleFeature(feature)} data-testid={`feature-toggle-${feature.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}>{requiredFeatures.includes(feature) && <Check />}{feature}</button>)}</div>
           {requiredFeatures.filter((feature) => !featureOptions.includes(feature)).length > 0 && <div className="feature-chips" style={{ marginTop: 9 }}>{requiredFeatures.filter((feature) => !featureOptions.includes(feature)).map((feature) => <button type="button" className="feature-chip selected" key={feature} onClick={() => toggleFeature(feature)} aria-label={`Remove ${feature}`} data-testid={`feature-custom-${feature}`}><Check />{feature}<X size={11} /></button>)}</div>}
@@ -262,13 +262,13 @@ function RequestPage({ request, onSubmit }: { request: Request; onSubmit: (value
   </>;
 }
 
-function OffersPage({ request, selectedOfferId, onSelect }: { request: Request; selectedOfferId: string | null; onSelect: (offer: Offer) => void }) {
+function OffersPage({ request, offers, selectedOfferId, onSelect }: { request: Request; offers: Offer[]; selectedOfferId: string | null; onSelect: (offer: Offer) => void }) {
   const eligibleCount = offers.filter((offer) => isEligible(offer, request)).length;
   return <>
     <PageHeading eyebrow="Step 02 · Compare" title="Three options. Clear rules." description={`For “${request.productRequest}” · capped at ${formatNear(request.budgetNear)} NEAR.`} action={<Link href="/request" className="button ghost" data-testid="button-edit-criteria"><ArrowLeft size={14} />Edit criteria</Link>} />
     <div className="stepper"><span className="step done"><i><Check size={11} /></i>Request</span><span className="step-rule" /><span className="step current"><i>2</i>Compare</span><span className="step-rule" /><span className="step"><i>3</i>Review</span></div>
-    <div className="compare-top"><span>Exactly three illustrative offers · rules run locally against your criteria</span><span className="comparison-req"><i className="dot" />{eligibleCount} eligible · {request.requiredFeatures.length} requirements</span></div>
-    <div className="offers-grid">{offers.map((offer, index) => {
+    <div className="compare-top"><span>{offers.length ? `${offers.length} illustrative offers for this category · rules run locally against your criteria` : 'No sample offers are available for this product category'}</span><span className="comparison-req"><i className="dot" />{eligibleCount} eligible · {request.requiredFeatures.length} requirements</span></div>
+    {offers.length > 0 ? <div className="offers-grid">{offers.map((offer, index) => {
       const reasons = decisionReasons(offer, request);
       const eligible = reasons.length === 0;
       const selected = selectedOfferId === offer.id;
@@ -283,8 +283,8 @@ function OffersPage({ request, selectedOfferId, onSelect }: { request: Request; 
         {reasons.length > 0 ? <div className="reasons" role="status" data-testid={`offer-rejection-${offer.id}`}><strong>Rule check:</strong> {reasons.join(' ')}</div> : <div style={{ minHeight: 31 }} />}
         <button type="button" className={`button ${eligible ? selected ? 'secondary' : '' : 'secondary'}`} disabled={!eligible} onClick={() => onSelect(offer)} data-testid={`button-select-offer-${offer.id}`}>{eligible ? selected ? 'Review selected offer' : 'Select for review' : 'Does not qualify'}{eligible && <ArrowRight size={14} />}</button>
       </article>;
-    })}</div>
-    <div className="callout" style={{ marginTop: 18 }}><strong>Sample data only.</strong> These are illustrative listings used to demonstrate the decision flow. No live marketplace, wallet, or network is connected.</div>
+    })}</div> : <section className="panel empty-state" data-testid="empty-sample-offers"><div className="empty-symbol"><PackageSearch size={19} /></div><h3>No sample offers for this product</h3><p>BuyWise has no illustrative {getProductCategoryLabel(request.productRequest) ?? 'category'} offers for “{request.productRequest}.” It did not compare unrelated products.</p><p>Try headphones, laptops, smartphones, or monitors.</p><Link href="/request" className="button" data-testid="button-empty-update-request">Update request <ArrowRight size={14} /></Link></section>}
+    {offers.length > 0 && <div className="callout" style={{ marginTop: 18 }}><strong>Sample data only.</strong> These are illustrative listings used to demonstrate the decision flow. No live marketplace, wallet, or network is connected.</div>}
   </>;
 }
 

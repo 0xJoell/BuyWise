@@ -1,0 +1,1 @@
+- [BuyWise demo boundary](buywise-demo-boundary.md) — Keep offers and approvals sample-only; no wallet or completed transaction claims.
