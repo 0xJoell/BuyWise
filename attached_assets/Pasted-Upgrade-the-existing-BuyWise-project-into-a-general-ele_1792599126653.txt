@@ -1,0 +1,65 @@
+Upgrade the existing BuyWise project into a general electronics and gadgets comparison assistant. Do not rebuild the project from scratch or remove existing working features.
+
+GOAL:
+Users should be able to request comparisons for a broad range of electronic gadgets, not just a few hardcoded categories.
+
+1. BUILD A FLEXIBLE PRODUCT CATALOGUE
+
+Organize simulated demo offers into categories:
+
+- Phones and tablets
+- Laptops and desktop computers
+- Monitors and displays
+- Keyboards, mice and computer accessories
+- Headphones, earbuds, speakers and microphones
+- Smartwatches, fitness bands and wearable devices
+- Chargers, cables, power banks and adapters
+- Storage devices, SSDs, USB drives and memory cards
+- Routers, networking equipment and Wi-Fi devices
+- Cameras, action cameras, drones and photography accessories
+- Gaming consoles, controllers, headsets and gaming accessories
+- Smart-home devices, smart lights and security cameras
+- Printers, scanners, projectors and other common electronics
+
+2. USE FLEXIBLE PRODUCT RECOGNITION
+
+Recognize product names, common synonyms and variations, including "smart watch" versus "smartwatch" and "wireless earphones" versus "Bluetooth earbuds".
+
+Do not depend only on an exact keyword list. Use a maintainable category and attribute system so new products and categories can be added without changing the entire application.
+
+3. USE A GENERIC PRODUCT DATA MODEL
+
+Each offer should contain:
+
+- Product name and category
+- Clearly labelled simulated price
+- Currency/unit
+- Key specifications and features
+- Compatibility details where relevant
+- A unique offer ID
+
+Never invent real merchant listings or claim that simulated prices are current market prices.
+
+4. COMPARE AGAINST THE USER'S ACTUAL REQUEST
+
+Read the current product, budget, currency, and required features. Compare only relevant products. Apply deterministic rules that reject over-budget offers and offers missing mandatory requirements. Explain each decision.
+
+Do not hardcode the original headphones request, budget, or features.
+
+5. HANDLE UNKNOWN PRODUCTS GRACEFULLY
+
+If a product category is not in the catalogue, do not crash or show unrelated offers. Offer a generic comparison setup where the user can enter specifications and add their own sample offers, or clearly explain that matching demo data is not available.
+
+6. IMPROVE THE INTERFACE
+
+Add searchable category selection, product suggestions, filters, sorting by price and eligibility, and a clear product specification comparison.
+
+Keep the current premium dark design and mobile responsiveness.
+
+7. TEST BEFORE FINISHING
+
+Test headphones, smartwatch, smartphone, laptop, charger, gaming controller, and an unknown gadget request. Verify that different requests produce relevant results, budget rules work, and missing features are rejected.
+
+Run available tests, fix errors, and confirm the app preview works.
+
+Keep all demo data clearly marked as simulated. Do not add real payment or wallet functionality yet. Explain what changed and any remaining limitations when finished.
