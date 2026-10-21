@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "BuyWise"
+description = "A responsive AI-powered purchasing assistant concept for the NEAR ecosystem. Compare sample offers against a NEAR budget and required features, review decisions, and inspect an activity log without connecting a wallet or submitting real transactions."
+version = "1.0.0"
+id = "artifacts/buywise"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22902
+
+[services.development]
+run = "pnpm --filter @workspace/buywise run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/buywise", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/buywise/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22902"
+BASE_PATH = "/"
