@@ -63,7 +63,7 @@ function App() {
     setApproved(false);
     setSelectedOfferId(null);
     setActivity([]);
-    addActivity({ title: 'Request submitted', detail: `${nextRequest.productRequest} · ${getProductCategoryLabel(nextRequest.categoryId)} · budget ${formatPrice(nextRequest.budget)} ${nextRequest.currency} · ${nextRequest.requiredFeatures.length} required ${nextRequest.requiredFeatures.length === 1 ? 'feature' : 'features'}.`, kind: 'request' });
+    addActivity({ title: 'Request submitted', detail: `${nextRequest.productRequest} · ${getProductCategoryLabel(nextRequest.categoryId) ?? 'no matching demo category'} · budget ${formatPrice(nextRequest.budget)} ${nextRequest.currency} · ${nextRequest.requiredFeatures.length} required ${nextRequest.requiredFeatures.length === 1 ? 'feature' : 'features'}.`, kind: 'request' });
     const nextOffers = getSampleOffers(nextRequest.categoryId);
     if (nextOffers.length === 0) {
       addActivity({
@@ -173,7 +173,7 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow: string;
 }
 
 function Dashboard({ request, activity, offers }: { request: Request; activity: ActivityEntry[]; offers: Offer[] }) {
-  const hasRequest = Boolean(request.productRequest && request.categoryId);
+  const hasRequest = Boolean(request.productRequest);
   const bestEligible = offers.filter((offer) => isEligible(offer, request)).sort((a, b) => a.price - b.price)[0];
   const spent = bestEligible?.price ?? 0;
   const ringOffset = bestEligible && request.budget > 0 ? 420 - Math.min(420, (spent / request.budget) * 420) : 420;
@@ -202,7 +202,7 @@ function Dashboard({ request, activity, offers }: { request: Request; activity: 
     <div style={{ marginTop: 18 }} className="panel">
       <div className="panel-head"><h2>Current request</h2><Link href="/request" className="button ghost" style={{ minHeight: 31, padding: '0 10px', fontSize: 10 }} data-testid="link-edit-request">Edit request <ArrowRight size={13} /></Link></div>
       <div style={{ padding: '19px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 17 }}>
-        {hasRequest ? <><div><div style={{ color: '#e2e0e8', fontSize: 13, fontWeight: 700 }}>{request.productRequest}</div><div className="muted" style={{ fontSize: 10, marginTop: 6 }}>{getProductCategoryLabel(request.categoryId)} · simulated request · maximum {formatPrice(request.budget)} {request.currency}</div></div>
+        {hasRequest ? <><div><div style={{ color: '#e2e0e8', fontSize: 13, fontWeight: 700 }}>{request.productRequest}</div><div className="muted" style={{ fontSize: 10, marginTop: 6 }}>{getProductCategoryLabel(request.categoryId) ?? 'No matching demo category'} · simulated request · maximum {formatPrice(request.budget)} {request.currency}</div></div>
           <div className="feature-chips">{request.requiredFeatures.map((feature) => <span className="feature-chip selected" key={feature} style={{ cursor: 'default' }}><Check size={11} />{feature}</span>)}</div></> :
           <div><div style={{ color: '#e2e0e8', fontSize: 13, fontWeight: 700 }}>No active request</div><div className="muted" style={{ fontSize: 10, marginTop: 6 }}>Start with any supported electronics category.</div></div>}
       </div>
@@ -252,7 +252,6 @@ function RequestPage({ request, onSubmit }: { request: Request; onSubmit: (value
     const amount = Number(budget);
     if (!productRequest.trim()) { setError('Describe the product you are looking for.'); return; }
     if (!Number.isFinite(amount) || amount <= 0) { setError('Enter a budget greater than zero.'); return; }
-    if (!categoryId) { setError('Choose a supported product category from the searchable list.'); return; }
     if (!requiredFeatures.length) { setError('Select at least one required feature.'); return; }
     setError('');
     onSubmit({ productRequest: productRequest.trim(), categoryId, budget: amount, currency: request.currency, requiredFeatures });
@@ -263,7 +262,7 @@ function RequestPage({ request, onSubmit }: { request: Request; onSubmit: (value
     <div className="form-layout">
       <form className="panel form-panel" onSubmit={submit}>
         <div className="field"><label htmlFor="product-request">What are you looking to buy?</label><input id="product-request" className="control" list="buywise-product-suggestions" autoComplete="off" value={productRequest} onChange={(event) => changeProduct(event.target.value)} placeholder="e.g. wireless earphones, smartwatch, or charger" data-testid="input-product-request" /><datalist id="buywise-product-suggestions">{productSuggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist><span className="hint">Suggestions cover common electronics; product names are matched to the closest demo category.</span></div>
-        <div className="field"><label htmlFor="product-category">Search or choose a category</label><input id="product-category" className="control" type="search" list="buywise-category-options" autoComplete="off" value={categorySearch} onChange={(event) => changeCategory(event.target.value)} placeholder="Type a category, e.g. wearables" data-testid="input-product-category" /><datalist id="buywise-category-options">{PRODUCT_CATEGORIES.map((category) => <option key={category.id} value={category.label} />)}</datalist><span className="hint">{categoryId ? `Selected: ${getProductCategoryLabel(categoryId)} · ${getSampleOffers(categoryId).length} simulated offers` : 'Choose a category to see matching sample offers and requirements.'}</span></div>
+        <div className="field"><label htmlFor="product-category">Search or choose a category</label><input id="product-category" className="control" type="search" list="buywise-category-options" autoComplete="off" value={categorySearch} onChange={(event) => changeCategory(event.target.value)} placeholder="Type a category, e.g. wearables" data-testid="input-product-category" /><datalist id="buywise-category-options">{PRODUCT_CATEGORIES.map((category) => <option key={category.id} value={category.label} />)}</datalist><span className="hint">{categoryId ? `Selected: ${getProductCategoryLabel(categoryId)} · ${getSampleOffers(categoryId).length} simulated offers` : productRequest.trim() ? 'No matching category. You can still submit; unrelated offers will not be shown.' : 'Choose a category to see matching sample offers and requirements.'}</span></div>
         <div className="field"><label htmlFor="budget-near">Maximum budget</label><div className="budget-input"><input id="budget-near" className="control" type="number" min="0.01" step="0.01" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="0.0" data-testid="input-budget-near" /><span>{request.currency}</span></div><span className="hint">An offer over this simulated {request.currency} budget is automatically ineligible.</span></div>
         <div className="field"><label>Required features <span style={{ color: '#777582', fontWeight: 500 }}>({requiredFeatures.length} selected)</span></label><span className="hint">Choose the features every eligible offer must include.</span>
           {featureOptions.length ? <div className="feature-chips" style={{ marginTop: 5 }}>{featureOptions.map((feature) => <button type="button" key={feature} className={`feature-chip${requiredFeatures.includes(feature) ? ' selected' : ''}`} aria-pressed={requiredFeatures.includes(feature)} onClick={() => toggleFeature(feature)} data-testid={`feature-toggle-${feature.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}>{requiredFeatures.includes(feature) && <Check />}{feature}</button>)}</div> : <p className="muted" style={{ fontSize: 10, margin: '8px 0 0' }}>Choose a category to see available features, specifications, and compatibility requirements.</p>}
@@ -285,6 +284,7 @@ function RequestPage({ request, onSubmit }: { request: Request; onSubmit: (value
 }
 
 function OffersPage({ request, offers, selectedOfferId, onSelect }: { request: Request; offers: Offer[]; selectedOfferId: string | null; onSelect: (offer: Offer) => void }) {
+  const hasRequest = Boolean(request.productRequest);
   const eligibleCount = offers.filter((offer) => isEligible(offer, request)).length;
   const [filter, setFilter] = useState<'all' | 'eligible' | 'rejected'>('all');
   const [sort, setSort] = useState<'eligibility' | 'price-low' | 'price-high'>('eligibility');
@@ -300,9 +300,9 @@ function OffersPage({ request, offers, selectedOfferId, onSelect }: { request: R
     });
   const specLabels = [...new Set(visibleOffers.flatMap((offer) => offer.specifications.map((specification) => specification.label)))];
   return <>
-    <PageHeading eyebrow="Step 02 · Compare" title="Three sample options. Clear rules." description={`For “${request.productRequest}” · ${getProductCategoryLabel(request.categoryId) ?? 'category not selected'} · capped at ${formatPrice(request.budget)} ${request.currency}.`} action={<Link href="/request" className="button ghost" data-testid="button-edit-criteria"><ArrowLeft size={14} />Edit criteria</Link>} />
+    <PageHeading eyebrow="Step 02 · Compare" title={offers.length ? 'Three sample options. Clear rules.' : hasRequest ? 'No matching demo offers.' : 'Start a product comparison.'} description={offers.length ? `For “${request.productRequest}” · ${getProductCategoryLabel(request.categoryId)} · capped at ${formatPrice(request.budget)} ${request.currency}.` : hasRequest ? `No demo category matched “${request.productRequest}.” Unrelated products are not shown.` : 'Submit a product request to compare relevant simulated offers against your criteria.'} action={<Link href="/request" className="button ghost" data-testid="button-edit-criteria"><ArrowLeft size={14} />{hasRequest ? 'Edit criteria' : 'Create a request'}</Link>} />
     <div className="stepper"><span className="step done"><i><Check size={11} /></i>Request</span><span className="step-rule" /><span className="step current"><i>2</i>Compare</span><span className="step-rule" /><span className="step"><i>3</i>Review</span></div>
-    <div className="compare-top"><span>{offers.length ? `${offers.length} simulated offers in ${getProductCategoryLabel(request.categoryId)} · all decisions use your current request` : 'No matching demo offers are available for this product category'}</span><span className="comparison-req"><i className="dot" />{eligibleCount} eligible · {request.requiredFeatures.length} requirements</span></div>
+    <div className="compare-top"><span>{offers.length ? `${offers.length} simulated offers in ${getProductCategoryLabel(request.categoryId)} · all decisions use your current request` : hasRequest ? 'No matching demo offers are available for this product category' : 'No active request yet'}</span><span className="comparison-req"><i className="dot" />{eligibleCount} eligible · {request.requiredFeatures.length} requirements</span></div>
     {offers.length > 0 ? <>
       <div className="offer-toolbar">
         <label>Filter <select className="control" aria-label="Filter sample offers" value={filter} onChange={(event) => setFilter(event.target.value as typeof filter)}><option value="all">All offers</option><option value="eligible">Eligible</option><option value="rejected">Not eligible</option></select></label>
@@ -335,7 +335,7 @@ function OffersPage({ request, offers, selectedOfferId, onSelect }: { request: R
             <tr><th scope="row">Price</th>{visibleOffers.map((offer) => <td key={offer.id}>{formatPrice(offer.price)} {offer.currency} · simulated</td>)}</tr>
           </tbody></table></div>
       </section>}
-    </> : <section className="panel empty-state" data-testid="empty-sample-offers"><div className="empty-symbol"><PackageSearch size={19} /></div><h3>No matching sample offers</h3><p>BuyWise has no simulated demo data for “{request.productRequest}” in the selected category. It did not compare unrelated products.</p><p>Choose one of the searchable electronics categories or use a product suggestion.</p><Link href="/request" className="button" data-testid="button-empty-update-request">Update request <ArrowRight size={14} /></Link></section>}
+    </> : <section className="panel empty-state" data-testid="empty-sample-offers"><div className="empty-symbol"><PackageSearch size={19} /></div><h3>{hasRequest ? 'No matching sample offers' : 'No active request yet'}</h3><p>{hasRequest ? `BuyWise has no simulated demo data for “${request.productRequest}” in the selected category. It did not compare unrelated products.` : 'Create a product request first. BuyWise will only show offers from the matching demo category.'}</p><p>{hasRequest ? 'Choose one of the searchable electronics categories or use a product suggestion.' : 'The catalog is sample-only and does not use live merchant listings.'}</p><Link href="/request" className="button" data-testid="button-empty-update-request">{hasRequest ? 'Update request' : 'Create a request'} <ArrowRight size={14} /></Link></section>}
     {offers.length > 0 && <div className="callout" style={{ marginTop: 18 }}><strong>Simulated data only.</strong> These invented sample offers are not real merchant listings or current market prices. No live marketplace, wallet, or network is connected.</div>}
   </>;
 }

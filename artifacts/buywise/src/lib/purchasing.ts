@@ -4,7 +4,7 @@ import {
   type Offer,
   type ProductCategory,
   type ProductCategoryId,
-} from './catalog';
+} from './catalog.ts';
 
 export type {
   Currency,
@@ -12,7 +12,7 @@ export type {
   ProductCategory,
   ProductCategoryId,
   Specification,
-} from './catalog';
+} from './catalog.ts';
 
 export type Request = {
   productRequest: string;
@@ -87,7 +87,6 @@ export function getFeatureOptions(
   const values = offers.flatMap((offer) => [
     ...offer.features,
     ...offer.specifications.flatMap((specification) => [
-      specification.label,
       specification.value,
       `${specification.label}: ${specification.value}`,
     ]),
@@ -116,7 +115,6 @@ function offerAttributes(offer: Offer): string[] {
   return [
     ...offer.features,
     ...offer.specifications.flatMap((specification) => [
-      specification.label,
       specification.value,
       `${specification.label}: ${specification.value}`,
     ]),

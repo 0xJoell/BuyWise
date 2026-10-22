@@ -319,6 +319,36 @@ textarea.control { min-height:92px;resize:vertical; }
  .form-panel { padding:19px; }
 }
 
+.offer-toolbar { display:flex;align-items:flex-end;gap:12px;margin:0 0 14px; }
+.offer-toolbar label { display:grid;gap:6px;color:#aaa8b3;font-size:10px; }
+.offer-toolbar .control { width:auto;min-width:158px;padding:9px 12px; }
+.offer-toolbar select.control { color:#e8e6ee; }
+.toolbar-count { margin-left:auto;color:#7e7c89;font:10px 'DM Mono',monospace;padding:0 2px 10px; }
+.offer-specs { display:grid;gap:7px;margin:0 0 13px; }
+.offer-specs > strong,.offer-compatibility > strong,.review-compatibility > strong { color:#c9c6d1;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase; }
+.offer-specs > div,.review-specs > div { display:flex;justify-content:space-between;gap:12px;color:#858390;font-size:9px;line-height:1.45; }
+.offer-specs b,.review-specs b { color:#c3c0cb;font-weight:600;text-align:right; }
+.offer-compatibility,.review-compatibility { display:grid;gap:6px;padding:10px 0 13px;border-top:1px solid #292831;margin-bottom:12px; }
+.offer-compatibility > span,.review-compatibility > span { color:#858390;font-size:9px;line-height:1.55; }
+.specification-panel { margin-top:18px;overflow:hidden; }
+.spec-table-wrap { overflow-x:auto; }
+.spec-table { width:100%;border-collapse:collapse;text-align:left; }
+.spec-table th,.spec-table td { min-width:145px;padding:12px 15px;border-bottom:1px solid #282730;color:#aaa8b3;font-size:10px;line-height:1.5;vertical-align:top; }
+.spec-table th:first-child { min-width:120px;color:#d1ced9; }
+.spec-table thead th { color:#c9c3d8;background:#191820;font:10px 'DM Mono',monospace; }
+.spec-table tbody th { font-weight:600; }
+.spec-table tbody tr:last-child th,.spec-table tbody tr:last-child td { border-bottom:0; }
+.dashboard-activity-empty { padding:22px 0;color:#81808d;font-size:10px;line-height:1.6; }
+.review-specs { display:grid;gap:9px;margin-top:15px; }
+.review-compatibility { margin:15px 0 0;padding:12px 0 0; }
+@media (max-width: 720px) {
+  .offer-toolbar { align-items:stretch;flex-direction:column; }
+  .offer-toolbar label { width:100%; }
+  .offer-toolbar .control { width:100%; }
+  .toolbar-count { margin-left:0;padding:0; }
+  .spec-table { width:max-content;min-width:100%; }
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.
